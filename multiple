@@ -1,0 +1,417 @@
+// app/api/send-query/route.ts
+import { type NextRequest, NextResponse } from "next/server"
+import { Resend } from "resend"
+
+const resend = new Resend(process.env.RESEND_API_KEY)
+
+export async function POST(request: NextRequest) {
+try {
+const { name, email, subject, message } = await request.json()
+
+if (!name || !email || !subject || !message) {
+  return NextResponse.json({ error: "All fields are required" }, { status: 400 })
+}
+
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+if (!emailRegex.test(email)) {
+  return NextResponse.json({ error: "Invalid email format" }, { status: 400 })
+}
+
+const timestamp = new Date().toLocaleString("en-IN", {
+  timeZone: "Asia/Kolkata",
+  year: "numeric",
+  month: "long",
+  day: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+})
+
+const urgentKeywords = ["urgent", "asap", "emergency", "critical", "important"]
+const businessKeywords = ["project", "collaboration", "business", "opportunity", "partnership"]
+const text = `${subject} ${message}`.toLowerCase()
+
+let priority = "Low"
+if (urgentKeywords.some((k) => text.includes(k))) priority = "High"
+else if (businessKeywords.some((k) => text.includes(k))) priority = "Medium"
+
+const emailData = await resend.emails.send({
+  from: "Portfolio Query <onboarding@resend.dev>",
+  to: ["mukulg283@gmail.com"], // Updated recipient
+  reply_to: email, // reply directly to the sender
+  subject: `🔔 New Portfolio Query: ${subject}`,
+  html: `
+      <!DOCTYPE html>
+      <html><head><meta charSet="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #6441a5, #0cebeb); color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center; }
+          .content { background: #f9f9f9; padding: 20px; border-radius: 0 0 8px 8px; border: 1px solid #ddd; }
+          .priority { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; text-transform: uppercase; }
+          .priority.high { background: #fee2e2; color: #dc2626; }
+          .priority.medium { background: #fef3c7; color: #d97706; }
+          .priority.low { background: #d1fae5; color: #059669; }
+          .field { margin-bottom: 15px; }
+          .label { font-weight: bold; color: #555; }
+          .value { margin-top: 5px; padding: 10px; background: white; border-radius: 4px; border: 1px solid #e5e5e5; }
+          .message-box { background: white; padding: 15px; border-radius: 6px; border-left: 4px solid #6441a5; margin-top: 10px; }
+          .reply-button { display: inline-block; background: #6441a5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 15px; }
+          .note { background:#fff3cd;border:1px solid #ffeaa7;padding:10px;border-radius:4px;margin-bottom:15px;}
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>📧 New Portfolio Query</h1>
+          <p>Submitted via your website</p>
+        </div>
+        <div class="content">
+          <div class="note"><strong>Sender:</strong> ${name} &lt;${email}&gt;. Hit "Reply" to respond directly.</div>
+          <div style="text-align:right;margin-bottom:20px;"><span class="priority ${priority.toLowerCase()}">Priority: ${priority}</span></div>
+          <div class="field"><div class="label">👤 Name</div><div class="value">${name}</div></div>
+          <div class="field"><div class="label">📧 Email</div><div class="value"><a href="mailto:${email}">${email}</a></div></div>
+          <div class="field"><div class="label">📋 Subject</div><div class="value">${subject}</div></div>
+          <div class="field"><div class="label">💬 Message</div><div class="message-box">${message.replace(/\n/g, "<br>")}</div></div>
+          <div class="field"><div class="label">🕒 Received</div><div class="value">${timestamp} (IST)</div></div>
+          <div style="text-align:center;margin-top:25px;">
+            <a class="reply-button" href="mailto:${email}?subject=${encodeURIComponent("Re: " + subject)}">Reply to ${name}</a>
+          </div>
+        </div>
+      </body></html>
+    `,
+})
+
+console.log("Email sent:", emailData.data?.id || "Failed")
+return NextResponse.json({ success: true, message: "Query sent successfully", emailId: emailData.data?.id })
+} catch (error) {
+console.error("Query submission error:", error)
+return NextResponse.json(
+  { error: "Failed to send query. Please try again later." },
+  { status: 500 }
+)
+}
+}
+
+// components/sections/contact.tsx
+"use client"
+
+import type React from "react"
+import { useState } from "react"
+import { motion } from "framer-motion"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { useToast } from "@/components/ui/use-toast"
+import { Send, Mail, MapPin, Linkedin, Github, Twitter, Instagram, Calendar, Phone } from 'lucide-react'
+import { useAudio } from "@/hooks/use-audio"
+
+export default function Contact() {
+const [formData, setFormData] = useState({ name: "", email: "", subject: "", message: "" })
+const [isSubmitting, setIsSubmitting] = useState(false)
+const { toast } = useToast()
+const { play: playSuccess, audioSupported } = useAudio("/sounds/success.mp3")
+
+const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+const { name, value } = e.target
+setFormData((prev) => ({ ...prev, [name]: value }))
+}
+
+const handleSubmit = async (e: React.FormEvent) => {
+e.preventDefault()
+setIsSubmitting(true)
+try {
+  const response = await fetch("/api/send-query", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(formData),
+  })
+  const result = await response.json()
+  if (!response.ok) throw new Error(result.error || "Failed to send message")
+
+  setFormData({ name: "", email: "", subject: "", message: "" })
+  if (audioSupported) playSuccess()
+  toast({
+    title: "Message sent successfully! 📧",
+    description: "Your message has been sent to Mukul's inbox.",
+  })
+} catch (error) {
+  toast({
+    title: "Failed to send query",
+    description: "Please try again or email me directly at mukulg283@gmail.com",
+    variant: "destructive",
+  })
+} finally {
+  setIsSubmitting(false)
+}
+}
+
+return (
+<section id="contact" className="section-padding">
+  <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.8 }}>
+    <h2 className="section-title">Get In Touch</h2>
+    <p className="section-subtitle">Have a project in mind or want to collaborate? Feel free to reach out!</p>
+  </motion.div>
+
+  <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mt-12">
+    <motion.div initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.8 }}>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label htmlFor="name" className="text-sm font-medium">Your Name</label>
+            <Input id="name" name="name" placeholder="John Doe" value={formData.name} onChange={handleChange} required />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="email" className="text-sm font-medium">Your Email</label>
+            <Input id="email" name="email" type="email" placeholder="john@example.com" value={formData.email} onChange={handleChange} required />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="subject" className="text-sm font-medium">Subject</label>
+          <Input id="subject" name="subject" placeholder="Project Inquiry" value={formData.subject} onChange={handleChange} required />
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="message" className="text-sm font-medium">Message</label>
+          <Textarea id="message" name="message" placeholder="Tell me about your project or inquiry..." rows={6} value={formData.message} onChange={handleChange} required />
+        </div>
+
+        <Button type="submit" disabled={isSubmitting} className="w-full">
+          {isSubmitting ? "Sending..." : <>Send Message<Send className="ml-2 h-4 w-4" /></>}
+        </Button>
+      </form>
+    </motion.div>
+
+    <motion.div initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.8, delay: 0.2 }} className="space-y-8">
+      <div className="glass-card p-6">
+        <div className="flex items-start gap-4">
+          <div className="p-3 rounded-full bg-primary/20"><Mail className="h-6 w-6 text-primary" /></div>
+          <div>
+            <h3 className="text-xl font-bold mb-1">Email Me</h3>
+            <a href="mailto:mukulg283@gmail.com" className="text-muted-foreground hover:text-primary transition-colors">
+              mukulg283@gmail.com
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div className="glass-card p-6">
+        <div className="flex items-start gap-4">
+          <div className="p-3 rounded-full bg-cyan-500/20"><Phone className="h-6 w-6 text-cyan-500" /></div>
+          <div>
+            <h3 className="text-xl font-bold mb-1">Call Me</h3>
+            <a href="tel:+916387358718" className="text-muted-foreground hover:text-cyan-500 transition-colors">+91 6387358718</a>
+          </div>
+        </div>
+      </div>
+
+      <div className="glass-card p-6">
+        <div className="flex items-start gap-4">
+          <div className="p-3 rounded-full bg-green-500/20"><MapPin className="h-6 w-6 text-green-500" /></div>
+          <div>
+            <h3 className="text-xl font-bold mb-1">Location</h3>
+            <p className="text-muted-foreground">Kanpur, Uttar Pradesh, India</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="glass-card p-6">
+        <div className="flex items-start gap-4">
+          <div className="p-3 rounded-full bg-purple-500/20"><Calendar className="h-6 w-6 text-purple-500" /></div>
+          <div>
+            <h3 className="text-xl font-bold mb-1">Schedule a Meeting</h3>
+            <p className="text-muted-foreground mb-4">Book a time slot that works for you.</p>
+            <Button variant="outline" className="w-full bg-transparent">Open Calendar</Button>
+          </div>
+        </div>
+      </div>
+
+      <div className="glass-card p-6">
+        <h3 className="text-xl font-bold mb-4">Connect With Me</h3>
+        <div className="flex flex-wrap gap-4">
+          <a href="https://www.linkedin.com/in/mukulgupta007/?utm_source=share&utm_campaign=share_via&utm_content=profile" target="_blank" rel="noopener noreferrer" className="p-3 rounded-full bg-background/50 hover:bg-primary/20 transition-colors">
+            <Linkedin className="h-6 w-6" /><span className="sr-only">LinkedIn</span>
+          </a>
+          <a href="https://github.com/profmukulgupta" target="_blank" rel="noopener noreferrer" className="p-3 rounded-full bg-background/50 hover:bg-primary/20 transition-colors">
+            <Github className="h-6 w-6" /><span className="sr-only">GitHub</span>
+          </a>
+          <a href="https://x.com/MukulGu24384329" target="_blank" rel="noopener noreferrer" className="p-3 rounded-full bg-background/50 hover:bg-primary/20 transition-colors">
+            <Twitter className="h-6 w-6" /><span className="sr-only">Twitter</span>
+          </a>
+          <a href="https://www.instagram.com/mukuls_tg" target="_blank" rel="noopener noreferrer" className="p-3 rounded-full bg-background/50 hover:bg-primary/20 transition-colors">
+            <Instagram className="h-6 w-6" /><span className="sr-only">Instagram</span>
+          </a>
+          <a href="https://api.whatsapp.com/send?phone=916387358718" target="_blank" rel="noopener noreferrer" className="p-3 rounded-full bg-background/50 hover:bg-primary/20 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-message-circle"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" /></svg>
+            <span className="sr-only">WhatsApp</span>
+          </a>
+        </div>
+      </motion.div>
+    </motion.div>
+  </div>
+</section>
+)
+}
+
+// components/ui/footer.tsx
+import Link from "next/link"
+import { Github, Linkedin, Twitter, Instagram, Heart } from 'lucide-react'
+import VisitorCounter from "@/components/ui/visitor-counter"
+
+export default function Footer() {
+const currentYear = new Date().getFullYear()
+
+return (
+<footer className="bg-background/80 backdrop-blur-md border-t border-border mt-20">
+  <div className="container mx-auto px-4 py-12">
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+      <div className="md:col-span-2">
+        <Link href="/" className="text-2xl font-bold text-gradient">
+          Mukul Gu<span className="text-primary">pta</span>
+        </Link>
+        <p className="mt-4 text-muted-foreground max-w-md">
+          A multi-talented freelance software engineer, tech instructor, AI enthusiast, and creative entrepreneur
+          based in Kanpur, India.
+        </p>
+        <div className="flex space-x-4 mt-6">
+          <a href="https://github.com/profmukulgupta" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors" aria-label="GitHub">
+            <Github className="h-5 w-5" />
+          </a>
+          <a href="https://www.linkedin.com/in/mukulgupta007/?utm_source=share&utm_campaign=share_via&utm_content=profile" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors" aria-label="LinkedIn">
+            <Linkedin className="h-5 w-5" />
+          </a>
+          <a href="https://x.com/MukulGu24384329" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors" aria-label="Twitter">
+            <Twitter className="h-5 w-5" />
+          </a>
+          <a href="https://www.instagram.com/mukuls_tg" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors" aria-label="Instagram">
+            <Instagram className="h-5 w-5" />
+          </a>
+        </div>
+      </div>
+
+      <div>
+        <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
+        <ul className="space-y-2">
+          <li>
+            <Link href="#about" className="text-muted-foreground hover:text-primary transition-colors">
+              About Me
+            </Link>
+          </li>
+          <li>
+            <Link href="#projects" className="text-muted-foreground hover:text-primary transition-colors">
+              Projects
+            </Link>
+          </li>
+          <li>
+            <Link href="#beyond-code" className="text-muted-foreground hover:text-primary transition-colors">
+              Beyond Code
+            </Link>
+          </li>
+          <li>
+            <Link href="#resume" className="text-muted-foreground hover:text-primary transition-colors">
+              Resume
+            </Link>
+          </li>
+          <li>
+            <Link href="#analytics" className="text-muted-foreground hover:text-primary transition-colors">
+              Analytics
+            </Link>
+          </li>
+          <li>
+            <Link href="#contact" className="text-muted-foreground hover:text-primary transition-colors">
+              Contact
+            </Link>
+          </li>
+        </ul>
+      </div>
+
+      <div>
+        <h3 className="text-lg font-semibold mb-4">Contact</h3>
+        <ul className="space-y-2">
+          <li className="text-muted-foreground">Kanpur, Uttar Pradesh, India</li>
+          <li>
+            <a href="mailto:mukulg283@gmail.com" className="text-muted-foreground hover:text-primary transition-colors">
+              mukulg283@gmail.com
+            </a>
+          </li>
+          <li>
+            <a href="tel:+916387358718" className="text-muted-foreground hover:text-primary transition-colors">
+              +91 6387358718
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <div className="border-t border-border mt-12 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+      <p className="text-muted-foreground text-sm">&copy; {currentYear} Mukul Gupta. All rights reserved.</p>
+      <div className="flex items-center gap-4">
+        <VisitorCounter />
+        <p className="text-muted-foreground text-sm flex items-center">
+          Made with <Heart className="h-4 w-4 text-red-500 mx-1" /> and code
+        </p>
+      </div>
+    </div>
+  </div>
+</footer>
+)
+}
+
+// components/sections/query-panel.tsx
+// This file was not provided in its entirety, so I'm providing the snippet to update.
+// Assuming you have a handleSubmit function in query-panel.tsx, find the catch block and replace the toast with:
+
+// catch (error) {
+//   toast({
+//     title: "Failed to send query",
+//     description: "Please try again or contact me directly at mukulg283@gmail.com",
+//     variant: "destructive",
+//   })
+// }
+
+// app/page.tsx
+import { Suspense } from "react"
+import Hero from "@/components/sections/hero"
+import About from "@/components/sections/about"
+import Projects from "@/components/sections/projects"
+import BeyondCode from "@/components/sections/beyond-code"
+import Contact from "@/components/sections/contact"
+import Resume from "@/components/sections/resume"
+import Testimonials from "@/components/sections/testimonials"
+import Newsletter from "@/components/sections/newsletter"
+import LoadingSpinner from "@/components/ui/loading-spinner"
+
+export default function Home() {
+return (
+  <main className="flex min-h-screen flex-col items-center justify-between">
+    <Suspense fallback={<LoadingSpinner />}>
+      <Hero />
+    </Suspense>
+    <About />
+    <Projects />
+    <BeyondCode />
+    <Testimonials />
+    <Resume />
+    <Newsletter />
+    <Contact />
+  </main>
+)
+}
+
+// components/ui/navbar.tsx
+// Assuming this file exists and contains the navItems array
+// const navItems = [
+//   { name: "Home", href: "#" },
+//   { name: "About", href: "#about" },
+//   { name: "Projects", href: "#projects" },
+//   { name: "Beyond Code", href: "#beyond-code" },
+//   { name: "Resume", href: "#resume" },
+//   { name: "Contact", href: "#contact" },
+// ]
+const navItems = [
+{ name: "Home", href: "#" },
+{ name: "About", href: "#about" },
+{ name: "Projects", href: "#projects" },
+{ name: "Beyond Code", href: "#beyond-code" },
+{ name: "Resume", href: "#resume" },
+{ name: "Contact", href: "#contact" },
+]

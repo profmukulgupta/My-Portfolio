@@ -1,0 +1,174 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 263.4 70% 50.4%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 263.4 70% 50.4%;
+    --radius: 0.5rem;
+    --neon-cyan: 180 100% 50%;
+    --neon-purple: 280 100% 65%;
+    --neon-green: 142 100% 62%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Critical CSS for hero section - loaded immediately */
+.hero-critical {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.hero-content {
+  position: relative;
+  z-index: 50;
+  text-align: center;
+  padding: 2rem;
+  max-width: 64rem;
+}
+
+.hero-title {
+  font-size: clamp(2rem, 8vw, 4rem);
+  font-weight: 700;
+  margin-bottom: 1rem;
+  text-shadow: 0 0 5px theme("colors.purple.500"), 0 0 20px theme("colors.purple.500");
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
+}
+
+.hero-subtitle {
+  font-size: clamp(1.125rem, 4vw, 1.5rem);
+  color: theme("colors.muted.foreground");
+  margin-bottom: 2rem;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+/* Optimized glass card styles */
+.glass-card {
+  @apply bg-black/30 backdrop-blur-md border border-white/10 rounded-xl shadow-xl;
+  will-change: transform;
+}
+
+.neon-glow {
+  text-shadow: 0 0 5px theme("colors.purple.500"), 0 0 20px theme("colors.purple.500");
+}
+
+.neon-border {
+  @apply border border-transparent relative overflow-hidden;
+}
+
+.neon-border::before {
+  content: "";
+  @apply absolute inset-0 rounded-xl;
+  background: linear-gradient(90deg, theme("colors.purple.500"), theme("colors.cyan.400"), theme("colors.purple.500"));
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  padding: 1px;
+}
+
+/* Optimized animation with GPU acceleration */
+.animate-glow {
+  animation: glow 3s ease-in-out infinite alternate;
+  will-change: box-shadow;
+}
+
+@keyframes glow {
+  0% {
+    box-shadow: 0 0 5px theme("colors.purple.500"), 0 0 10px theme("colors.purple.500");
+  }
+  100% {
+    box-shadow: 0 0 10px theme("colors.cyan.400"), 0 0 20px theme("colors.cyan.400");
+  }
+}
+
+.text-gradient {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-purple-500 via-cyan-400 to-purple-500;
+}
+
+.section-padding {
+  @apply py-20 px-4 md:px-8 lg:px-16 max-w-7xl mx-auto w-full;
+}
+
+.section-title {
+  @apply text-3xl md:text-4xl lg:text-5xl font-bold mb-8 text-gradient;
+}
+
+.section-subtitle {
+  @apply text-xl text-muted-foreground mb-12 max-w-2xl;
+}
+
+/* Performance optimizations */
+.instagram-embed-container {
+  width: 100%;
+  max-width: 540px;
+  margin: 0 auto;
+  contain: layout style paint;
+}
+
+.instagram-embed-container .instagram-media {
+  border-radius: 12px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(10px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+@media (max-width: 768px) {
+  .instagram-embed-container {
+    max-width: 100%;
+    padding: 0 1rem;
+  }
+}
+
+/* Preload critical fonts */
+@font-face {
+  font-family: "Space Grotesk";
+  font-display: swap;
+  src: url("/fonts/space-grotesk.woff2") format("woff2");
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  .animate-glow {
+    animation: none;
+  }
+
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

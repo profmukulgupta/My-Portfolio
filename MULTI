@@ -1,0 +1,365 @@
+// app/api/send-query/route.ts
+import { type NextRequest, NextResponse } from "next/server"
+import { Resend } from "resend"
+
+const resend = new Resend(process.env.RESEND_API_KEY)
+
+export async function POST(request: NextRequest) {
+try {
+  const { name, email, subject, message } = await request.json()
+
+  if (!name || !email || !subject || !message) {
+    return NextResponse.json({ error: "All fields are required" }, { status: 400 })
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailRegex.test(email)) {
+    return NextResponse.json({ error: "Invalid email format" }, { status: 400 })
+  }
+
+  const timestamp = new Date().toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  })
+
+  const urgentKeywords = ["urgent", "asap", "emergency", "critical", "important"]
+  const businessKeywords = ["project", "collaboration", "business", "opportunity", "partnership"]
+  const text = `${subject} ${message}`.toLowerCase()
+
+  let priority = "Low"
+  if (urgentKeywords.some((k) => text.includes(k))) priority = "High"
+  else if (businessKeywords.some((k) => text.includes(k))) priority = "Medium"
+
+  const emailData = await resend.emails.send({
+    from: "Portfolio Query <onboarding@resend.dev>",
+    to: ["mukulg283@gmail.com"],
+    reply_to: email,
+    subject: `🔔 New Portfolio Query: ${subject}`,
+    html: `
+      <!DOCTYPE html><html><head><meta charSet="utf-8" />
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #6441a5, #0cebeb); color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center; }
+        .content { background: #f9f9f9; padding: 20px; border-radius: 0 0 8px 8px; border: 1px solid #ddd; }
+        .priority { display:inline-block;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:bold;text-transform:uppercase; }
+        .priority.high { background:#fee2e2;color:#dc2626; }
+        .priority.medium { background:#fef3c7;color:#d97706; }
+        .priority.low { background:#d1fae5;color:#059669; }
+        .message-box { background:#fff;padding:15px;border-radius:6px;border-left:4px solid #6441a5;margin-top:10px; }
+      </style></head>
+      <body>
+        <div class="header">
+          <h1>📧 New Portfolio Query</h1>
+          <p>Submitted via your website</p>
+        </div>
+        <div class="content">
+          <div style="text-align:right;margin-bottom:20px;">
+            <span class="priority ${priority.toLowerCase()}">Priority: ${priority}</span>
+          </div>
+          <p><strong>👤 Name:</strong> ${name}</p>
+          <p><strong>📧 Email:</strong> <a href="mailto:${email}">${email}</a></p>
+          <p><strong>📋 Subject:</strong> ${subject}</p>
+          <div><strong>💬 Message:</strong><div class="message-box">${message.replace(/\n/g, "<br>")}</div></div>
+          <p><strong>🕒 Received:</strong> ${timestamp} (IST)</p>
+          <p style="margin-top:16px;">Reply directly to the sender by hitting "Reply".</p>
+        </div>
+      </body></html>
+    `,
+  })
+
+  console.log("Email sent:", emailData.data?.id || "Failed")
+  return NextResponse.json({ success: true, message: "Query sent successfully", emailId: emailData.data?.id })
+} catch (error: any) {
+  console.error("Query submission error:", error)
+  return NextResponse.json(
+    { error: error?.message || "Failed to send query" },
+    { status: 500 },
+  )
+}
+}
+
+// components/sections/contact.tsx
+import React from "react"
+import { toast } from "react-toastify"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+
+const ContactSection = () => {
+const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  e.preventDefault()
+  const formData = new FormData(e.currentTarget)
+  const data = Object.fromEntries(formData.entries())
+
+  try {
+    const response = await fetch("/api/send-query", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    })
+
+    if (!response.ok) {
+      throw new Error("Failed to send query")
+    }
+
+    const result = await response.json()
+    if (result.success) {
+      toast.success("Query sent successfully", {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "colored",
+      })
+    } else {
+      throw new Error(result.error)
+    }
+  } catch (error: any) {
+    toast.error("Failed to send query. Please try again later.", {
+      position: "top-right",
+      autoClose: 5000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+      theme: "colored",
+      description: "If the issue persists, please contact mukulg283@gmail.com directly.",
+    })
+  }
+}
+
+return (
+  <section className="bg-white dark:bg-gray-900">
+    <div className="py-8 px-4 mx-auto max-w-screen-xl lg:py-16">
+      <div className="mx-auto max-w-screen-sm text-center">
+        <h1 className="mb-4 text-3xl font-extrabold tracking-tight leading-none text-gray-900 md:text-5xl lg:text-6xl dark:text-white">
+          Contact Us
+        </h1>
+        <p className="mb-8 font-light text-gray-500 lg:text-xl dark:text-gray-400">
+          Got a question or need assistance? Feel free to reach out.
+        </p>
+        <form onSubmit={handleSubmit} className="space-y-8">
+          <div>
+            <Label htmlFor="name" className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+              Your Name
+            </Label>
+            <Input id="name" name="name" type="text" className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" required />
+          </div>
+          <div>
+            <Label htmlFor="email" className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+              Your Email
+            </Label>
+            <Input id="email" name="email" type="email" className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" required />
+          </div>
+          <div>
+            <Label htmlFor="subject" className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+              Subject
+            </Label>
+            <Input id="subject" name="subject" type="text" className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" required />
+          </div>
+          <div>
+            <Label htmlFor="message" className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+              Your Message
+            </Label>
+            <Textarea id="message" name="message" rows={4} className="block p-2.5 w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" required />
+          </div>
+          <Button type="submit" className="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+            Send Query
+          </Button>
+        </form>
+      </div>
+    </div>
+  </section>
+)
+}
+
+export default ContactSection
+
+// components/sections/query-panel.tsx
+import React from "react"
+import { toast } from "react-toastify"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+
+const QueryPanel = () => {
+const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  e.preventDefault()
+  const formData = new FormData(e.currentTarget)
+  const data = Object.fromEntries(formData.entries())
+
+  try {
+    const response = await fetch("/api/send-query", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    })
+
+    if (!response.ok) {
+      throw new Error("Failed to send query")
+    }
+
+    const result = await response.json()
+    if (result.success) {
+      toast.success("Query sent successfully", {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "colored",
+      })
+    } else {
+      throw new Error(result.error)
+    }
+  } catch (error: any) {
+    toast.error("Failed to send query. Please try again later.", {
+      position: "top-right",
+      autoClose: 5000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+      theme: "colored",
+      description: "If the issue persists, please contact mukulg283@gmail.com directly.",
+    })
+  }
+}
+
+return (
+  <div className="bg-white dark:bg-gray-900">
+    <div className="py-8 px-4 mx-auto max-w-screen-xl lg:py-16">
+      <div className="mx-auto max-w-screen-sm text-center">
+        <h1 className="mb-4 text-3xl font-extrabold tracking-tight leading-none text-gray-900 md:text-5xl lg:text-6xl dark:text-white">
+          Submit Your Query
+        </h1>
+        <p className="mb-8 font-light text-gray-500 lg:text-xl dark:text-gray-400">
+          Your query will be sent directly to mukulg283@gmail.com.
+        </p>
+        <form onSubmit={handleSubmit} className="space-y-8">
+          <div>
+            <Label htmlFor="name" className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+              Your Name
+            </Label>
+            <Input id="name" name="name" type="text" className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" required />
+          </div>
+          <div>
+            <Label htmlFor="email" className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+              Your Email
+            </Label>
+            <Input id="email" name="email" type="email" className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" required />
+          </div>
+          <div>
+            <Label htmlFor="subject" className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+              Subject
+            </Label>
+            <Input id="subject" name="subject" type="text" className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" required />
+          </div>
+          <div>
+            <Label htmlFor="message" className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+              Your Message
+            </Label>
+            <Textarea id="message" name="message" rows={4} className="block p-2.5 w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" required />
+          </div>
+          <Button type="submit" className="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+            Send Query
+          </Button>
+        </form>
+      </div>
+    </div>
+  </div>
+)
+}
+
+export default QueryPanel
+
+// app/page.tsx
+import { Suspense } from "react"
+import Hero from "@/components/sections/hero"
+import About from "@/components/sections/about"
+import Projects from "@/components/sections/projects"
+import BeyondCode from "@/components/sections/beyond-code"
+import Contact from "@/components/sections/contact"
+import Resume from "@/components/sections/resume"
+import Testimonials from "@/components/sections/testimonials"
+import Newsletter from "@/components/sections/newsletter"
+import LoadingSpinner from "@/components/ui/loading-spinner"
+
+export default function Home() {
+return (
+  <main className="flex min-h-screen flex-col items-center justify-between">
+    <Suspense fallback={<LoadingSpinner />}>
+      <Hero />
+    </Suspense>
+    <About />
+    <Projects />
+    <BeyondCode />
+    <Testimonials />
+    <Resume />
+    <Newsletter />
+    <Contact />
+  </main>
+)
+}
+
+// components/ui/navbar.tsx
+const navItems = [
+{ name: "Home", href: "#" },
+{ name: "About", href: "#about" },
+{ name: "Projects", href: "#projects" },
+{ name: "Beyond Code", href: "#beyond-code" },
+{ name: "Resume", href: "#resume" },
+{ name: "Contact", href: "#contact" },
+]
+
+// components/ui/footer.tsx
+<ul className="space-y-2">
+<li>
+  <Link href="#about" className="text-muted-foreground hover:text-primary transition-colors">
+    About Me
+  </Link>
+</li>
+<li>
+  <Link href="#projects" className="text-muted-foreground hover:text-primary transition-colors">
+    Projects
+  </Link>
+</li>
+<li>
+  <Link href="#beyond-code" className="text-muted-foreground hover:text-primary transition-colors">
+    Beyond Code
+  </Link>
+</li>
+<li>
+  <Link href="#resume" className="text-muted-foreground hover:text-primary transition-colors">
+    Resume
+  </Link>
+</li>
+<li>
+  <Link href="#analytics" className="text-muted-foreground hover:text-primary transition-colors">
+    Analytics
+  </Link>
+</li>
+<li>
+  <Link href="#contact" className="text-muted-foreground hover:text-primary transition-colors">
+    Contact
+  </Link>
+</li>
+</ul>
